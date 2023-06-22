@@ -15,13 +15,26 @@ class DeviationPublisher:
     def __init__(self):
 
         self.deviation_pub = rospy.Publisher("/ika_racer/lane_visual_following/lane_deviation", Float64, queue_size=10)
-        self.__realsense_image_sub  = rospy.Subscriber("/ika_racer/perception/realsense/camera/color/image_raw", Image, self.__realsense_image_callback)
-        self.__fisheye_image_sub  = rospy.Subscriber("/ika_racer/perception/fisheye_camera/image_raw", Image, self.__fisheye_image_callback)
+        #self.__realsense_image_sub  = rospy.Subscriber("/ika_racer/perception/realsense/camera/color/image_raw", Image, self.__realsense_image_callback)
+        #self.__fisheye_image_sub  = rospy.Subscriber("/ika_racer/perception/fisheye_camera/image_raw", Image, self.__fisheye_image_callback)
+        self.__ipm_image_sub  = rospy.Subscriber("/ika_racer/functions/ipm/bird_eye_view_image", Image, self.__ipm_image_callback)
         self.steering_angle_factor = 1.0
         self.intial_time = rospy.get_time()
         self.w = 2*math.pi*0.05
         self.img_bridge = CvBridge()
         self.cl_detector = ClassicalLaneDetector()
+    
+    
+    def __ipm_image_callback(self, msg):
+
+        try: 
+            cv_image = self.img_bridge.imgmsg_to_cv2(msg, "bgr8")
+            cv2.imshow("Detected Lane", cv_image)
+            cv2.waitKey(3)
+
+        except Exception as e:
+
+            print(e)
 
     def __realsense_image_callback(self, msg):
 
@@ -34,8 +47,8 @@ class DeviationPublisher:
             cv_image = self.img_bridge.imgmsg_to_cv2(msg, "bgr8")
             #cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
             detected_lane = self.cl_detector.detect_pipeline(cv_image)
-            #cv2.imshow("Detected Lane", detected_lane)
-            #cv2.waitKey(3)
+            cv2.imshow("Detected Lane", detected_lane)
+            cv2.waitKey(3)
 
         except Exception as e:
 

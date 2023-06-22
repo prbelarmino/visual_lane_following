@@ -45,7 +45,7 @@ class ClassicalLaneDetector:
         
         tempr = 0
         templ = 0
-        print("lines")
+        #print("lines")
         for r_theta in lines:
             arr = np.array(r_theta[0], dtype=np.float64)
             r, theta = arr
@@ -64,12 +64,13 @@ class ClassicalLaneDetector:
                 right_pt = np.array(((x1,y1),(x2,y2)))
                 right_x2=x2
                 tempr=1
+                #k = math.atan((y2-y1)/(x2-x1))
+                #print(r,theta,a,b,x0,y0,k)
                 
             elif r>0 & y2<left_y2:
                 left_line.append((r,theta))
                 left_pt = np.array(((x1,y1),(x2,y2)))
-                k = math.atan((y2-y1)/(x2-x1))
-                print(r,theta,a,b,x0,y0,k)
+                left_y2=y2
                 templ=1
         
         #print(right_pt)
@@ -85,17 +86,26 @@ class ClassicalLaneDetector:
         else:
             pass
         
+        
         if (templ == 1) & (tempr == 1):
             temprpara = np.polyfit((right_pt[0,0],right_pt[1,0]),(right_pt[0,1],right_pt[1,1]),deg=1)
             templpara = np.polyfit((left_pt[0,0],left_pt[1,0]),(left_pt[0,1],left_pt[1,1]),deg=1)
             
+                      
             if (np.abs(templpara[0])<=0.01) or (np.abs(temprpara[0])<=0.01) :
                 pass
-            else:    
+            else:
+
                 lx_point = 0
                 ly_point = int(templpara[0]*lx_point + templpara[1])
+
+                fixed_y = 200
+                lx_point = (fixed_y-templpara[1])/templpara[0]
+                rx_point = (fixed_y-temprpara[1])/temprpara[0] 
+
                 for delta in range(0,100,5):
                     point = ly_point-delta
+
                     lx_point = (point-templpara[1])/templpara[0]
                     rx_point = (point-temprpara[1])/temprpara[0]
                     center_point = int(np.mean((lx_point,rx_point)))
