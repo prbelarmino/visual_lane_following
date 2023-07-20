@@ -12,7 +12,6 @@ class ClassicalLaneDetector:
     def threshold_filter(self,image , thresh_low = 75, thresh_high = 200):
     
         hsvimage = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        
         copy = np.copy(hsvimage[:,:,1])
         filtered_image = np.zeros_like(copy)
         filtered_image[(thresh_low<copy)&(copy<thresh_high)]=255

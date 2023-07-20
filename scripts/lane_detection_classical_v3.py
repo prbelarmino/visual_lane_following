@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import cv2
-
+import math
 class ClassicalLaneDetector():
 
     def __init__(self):
@@ -25,7 +25,7 @@ class ClassicalLaneDetector():
         #### For region masking --> mask_region
         self.lvertices = np.array([[(0,320),(0, 150), (239, 150), (239,320)]], dtype=np.int32) ### Vertices to mask the right side of the image
         self.rvertices = np.array([[(240,320),(240, 150), (480, 150), (480,320)]], dtype=np.int32) ### Vertices to mask the left side of the image
-        self.rs_mask_vertices = np.array([[(0, 220),(0, 180),(424, 180),(424, 220)]], dtype=np.int32)
+        self.rs_mask_vertices = np.array([[(0, 180),(0, 140),(424, 140),(424, 180)]], dtype=np.int32)
 
         #### For HoughLines --> get_HoughP
         self.vote_threshold = 15 # minimum number of votes (intersections in Hough grid cell)
@@ -48,7 +48,7 @@ class ClassicalLaneDetector():
         self.rs_image_height = 240
         self.rs_y_line_limit = 150
         self.fe_image_height = 360
-        self.fe_y_line_limit = 150
+        self.fe_y_line_limit = 140
         self.window_size = 10
 
     def get_thresholded_hsv(self,image,flag):
@@ -64,7 +64,7 @@ class ClassicalLaneDetector():
         else:
 
             lower_threshold = np.array([0,75,100],dtype = "uint8")
-            upper_theshold = np.array([200,175,200],dtype = "uint8")
+            upper_theshold = np.array([200,175,250],dtype = "uint8")
         # image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         # clahe = cv2.createCLAHE(clipLimit=10, tileGridSize=(32,32))
         # equ = cv2.equalizeHist(image_gray)
@@ -82,14 +82,11 @@ class ClassicalLaneDetector():
         #for i in image_hsv[:,1,1]
         #print(image_hsv.shape)
         if False:
-            cv2.imshow("Original", image_gray)
+            cv2.imshow("Original", image_hsv)
             cv2.waitKey(50)
-            cv2.imshow("Filtered", res)
+            cv2.imshow("Filtered", filtered_image)
             cv2.waitKey(50)
-            cv2.imshow("Filtered2", cl1)
-            cv2.waitKey(50)
-  
-        
+   
 
         return filtered_image
 
@@ -114,8 +111,10 @@ class ClassicalLaneDetector():
         mask = np.zeros_like(image) 
         cv2.fillPoly(mask, vertices, ignore_mask_color)
         masked_edges = cv2.bitwise_and(image, mask)
-        if False:
-            cv2.imshow("Detected Lane", masked_edges)
+        if True:
+            cv2.imshow("canny", image)
+            cv2.waitKey(30)
+            cv2.imshow("masked", masked_edges)
             cv2.waitKey(30)
         
         return masked_edges
@@ -132,15 +131,32 @@ class ClassicalLaneDetector():
 
         return np.average(np.array(line_list), axis=0)
     
-    def get_avg_lines(self,lines):
+    def get_avg_lines(self,lines,image):
 
         left = []
         right = []
+        x = 0
+
+        # s_lines = lines[:,0,:]
+        # s_lines = s_lines[s_lines[:, 0].argsort()]
+        # group = np.split(s_lines, np.where(np.diff(s_lines[:,0]) > 10)[0]+1)
+        # #print(s_lines)
+        # #print(np.where(np.diff(s_lines[:,0]) > 10))
+        # len_g = [len(i) for i in group]
+        #print(len_g)
+        #group_avg = [np.average(i, axis=0) for i in group]
+        #print(group_avg)
         if not lines is None:
             for line in lines:
                 
                 x1, y1, x2, y2 = line.reshape(4)
+
+                cv2.line(image,(x1,y1),(x2,y2),(x,100,2*x),10)
+                x += 10
+                line_len = math.sqrt((x2-x1)**2 + (y2-y1)**2)
+                
                 if x1 != x2:
+
                     parameters = np.polyfit((x1, x2), (y1, y2), 1)
                     slope = parameters[0]
                     y_int = parameters[1]
@@ -155,7 +171,7 @@ class ClassicalLaneDetector():
                         elif slope > 0 and x0 >= 212:
                             right.append((slope, y_int))
 
-        self.window_size = 10
+
         left_line_avg = []
         right_line_avg = []
         flag = "REALSENSE"
@@ -199,21 +215,23 @@ class ClassicalLaneDetector():
             y1 = self.rs_image_height
             y2 = self.rs_y_line_limit
 
-        x1 = int((y1 -y_int)//slope)
-        x2 = int((y2 -y_int)//slope)
+        x1 = int((y1 - y_int)//slope)
+        x2 = int((y2 - y_int)//slope)
         return np.array([x1, y1, x2, y2, slope])
     
     def get_lanes(self,image,edges):
  
         masked_edges = self.mask_region(edges,self.rs_mask_vertices)
         lines = cv2.HoughLinesP(masked_edges, self.rho, self.theta, self.vote_threshold , np.array([]),self.min_linelength , self.max_linegap)
-        left_line_avg, right_line_avg = self.get_avg_lines(lines)
-
+        left_line_avg, right_line_avg = self.get_avg_lines(lines,image)
+        if True:
+            cv2.imshow("lines", image)
+            cv2.waitKey(50)
         return image, left_line_avg, right_line_avg
 
     def get_lane_slopes2(self,image,edges, lvertices, rvertices):
  
-        draw = True
+        draw = False
         lmasked_edges = self.mask_region(edges,lvertices)
         rmasked_edges = self.mask_region(edges,rvertices)
         threshold  = self.vote_threshold 
