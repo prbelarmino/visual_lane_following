@@ -52,36 +52,32 @@ class ClassicalLaneDetector():
         self.font = cv2.FONT_HERSHEY_SIMPLEX
         self.fontScale = 1
         self.thickness = 2
+        self.d = 200
+        self.left_lines_tr = []
+        self.right_lines_tr = []
         
 
     def lane_transformation(self,lane):
 
-        if lane.shape[0]:
+        if not lane is None and len(lane):
  
             xp = np.array([lane[0], lane[2]])
             yp = np.array([lane[1], lane[3]])
-            slope = (yp[1] - yp[0]) / (xp[1] - xp[0])
             xp = 0.5 * self.rs_image_width + 0.5 * self.rs_image_height * (xp - self.rs_image_width / 2) / (yp - self.rs_image_height / 2)
-            slope = (yp[1] - yp[0]) / (xp[1] - xp[0])
-            
-            angle = math.atan(slope)
-            
-            if slope < 0:
-
-                angle += math.radians(180)
-
-            lane_tr = [xp[0],yp[0],xp[1],yp[1],angle]
+            yp = self.rs_image_height - self.d*(self.rs_image_height - yp)/(yp-self.rs_image_height/2)
+            lane_tr = [xp[0],yp[0],xp[1],yp[1]]
 
         else: 
 
             lane_tr = []
 
-        return np.array(lane_tr) 
+        return lane_tr
     
     def get_mov_avg(self,line_list,parameters):
 
         para_len = len(parameters)
         line_len = len(line_list)
+
         if para_len:
 
             line_list.append(np.average(parameters, axis=0))
@@ -93,6 +89,18 @@ class ClassicalLaneDetector():
         if len(line_list): 
 
             line = np.average(np.array(line_list), axis=0)
+            a = (line[3] - line[1])/(line[2] - line[0])
+            b = line[1] - a*line[0]
+            y1 = self.rs_image_height
+            x1 = (y1 - b)/a
+            y2 = y1/1.5
+            x2 = (y1 - b)/a
+            angle = math.atan(a)
+            
+            if a < 0:
+
+                angle += math.radians(180)
+            line = np.array([x1,y1,x2,y2,angle])
 
         else:
 
@@ -102,10 +110,8 @@ class ClassicalLaneDetector():
     
     def get_lanes(self,lines):
 
-        left = []
-        right = []
-        left_lane = []
-        right_lane = []
+        left_lines_tr = []
+        right_lines_tr = []
         if not lines is None:
             for line in lines:
                 
@@ -123,20 +129,15 @@ class ClassicalLaneDetector():
                         
                         if slope < 0 and xh < 212:
 
-                            left.append((xh,yh,xm,ym))
+                            #left.append((xh,yh,xm,ym))
+                            left_lines_tr.append(self.lane_transformation([x1,y1,x2,y2]))
 
                         elif slope > 0 and xh >= 212:
 
-                            right.append((xh,yh,xm,ym))
+                            right_lines_tr.append(self.lane_transformation([x1,y1,x2,y2]))
 
-        
-        self.left_line_avg = self.get_mov_avg(self.left_lines_list,left)
-        self.right_line_avg = self.get_mov_avg(self.right_lines_list,right)
-        left_lane = self.lane_transformation(self.left_line_avg)
-        right_lane = self.lane_transformation(self.right_line_avg)
-        
-
-        return left_lane,right_lane
+        self.left_lane = self.get_mov_avg(self.left_lines_list,left_lines_tr)
+        self.right_lane = self.get_mov_avg(self.right_lines_list,right_lines_tr)
 
     def detection_pipeline(self,image):
 
@@ -151,35 +152,38 @@ class ClassicalLaneDetector():
         cv2.fillPoly(mask, self.rs_mask_vertices, self.ignore_mask_color)
         self.masked_edges = cv2.bitwise_and(self.edges, mask)
         lines = cv2.HoughLinesP(self.masked_edges, self.rho, self.theta, self.vote_threshold , np.array([]),self.min_linelength , self.max_linegap)
-        left, right = self.get_lanes(lines)
-        self.left_lane = np.array(left) 
-        self.right_lane = np.array(right)
+        self.get_lanes(lines)
 
         if self.plot_flag:
 
             self.output = np.stack((self.edges,) * 3, axis=-1)
             cv2.line(self.output, self.mask_points[1], self.mask_points[2], (255, 255, 255), 2)
+
             if not lines is None:
+
                 for line in lines:
 
                     line = line[0]
-                    cv2.line(self.output, (line[0], line[1]), (line[2], line[3]), (randrange(255), randrange(255), randrange(255)), 2)
-
-            if self.left_line_avg.shape[0]:
+                    cv2.line(self.output, (int(line[0]), int(line[1])), (int(line[2]), int(line[3])), (randrange(255), randrange(255), randrange(255)), 2)
+                    
+                    
+            if self.left_lane.shape[0]:
 
                 #left_slope = (self.left_line_avg[3] - self.left_line_avg[1]) / (self.left_line_avg[2] - self.left_line_avg[0])
                 left_slope = math.degrees(self.left_lane[4])
-                left_line_avg = self.left_line_avg.astype(int) 
+                left_line_avg = self.left_lane.astype(int) 
                 org = (50, 50)
                 org2 = (30,85)
                 self.output = cv2.putText(self.output, "{:2.2f}".format(left_slope), org, self.font, self.fontScale, self.color, self.thickness, cv2.LINE_AA)
                 self.output = cv2.putText(self.output, "{:3.2f}".format(self.left_lane[0]), org2, self.font, self.fontScale, self.color, self.thickness, cv2.LINE_AA)               
                 cv2.line(self.output, (left_line_avg[0], left_line_avg[1]), (left_line_avg[2], left_line_avg[3]), (255,255,0), 8)
 
-            if self.right_line_avg.shape[0]:
+            if self.right_lane.shape[0]:
                 #right_slope = (self.right_line_avg[3] - self.right_line_avg[1]) / (self.right_line_avg[2] - self.right_line_avg[0])
+                
                 right_slope = math.degrees(self.right_lane[4])
-                right_line_avg = self.right_line_avg.astype(int)
+                right_line_avg = self.right_lane.astype(int)
+
                 org = (300, 50)
                 org2 = (300, 85)
                 self.output = cv2.putText(self.output, "{:1.2f}".format(right_slope), org, self.font, self.fontScale, self.color, self.thickness, cv2.LINE_AA)

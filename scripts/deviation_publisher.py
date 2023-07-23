@@ -33,12 +33,11 @@ class DeviationPublisher:
 
         cv_image = self.img_bridge.imgmsg_to_cv2(msg, "bgr8")
         self.cl_detector.detection_pipeline(cv_image)
-        self.lane_msg.left_lane = self.cl_detector.left_line_avg
-        self.lane_msg.right_lane = self.cl_detector.right_line_avg
-        self.get_deviation_and_slope()
+        self.lane_msg.left_lane = self.cl_detector.left_lane
+        self.lane_msg.right_lane = self.cl_detector.right_lane
         
         self.deviation_pub.publish(self.lane_msg)
-        self.cl_detector.plot_flag = True
+        self.cl_detector.plot_flag = False
         if self.cl_detector.plot_flag and cv_image.shape == self.cl_detector.output.shape:
 
             stack_image = np.hstack((cv_image, self.cl_detector.output))
@@ -49,20 +48,7 @@ class DeviationPublisher:
             cv2.imshow("image", final_stack)
             cv2.waitKey(3)
                  
-    def get_deviation_and_slope(self):
-
-        parameters = []
-        if self.cl_detector.left_lane.shape[0]:
-
-            parameters.append([self.cl_detector.left_lane[0],self.cl_detector.left_lane[4]])
-
-        if self.cl_detector.right_lane.shape[0]:
-
-            parameters.append([self.cl_detector.right_lane[0]-self.cl_detector.rs_image_width,self.cl_detector.right_lane[4]])
-
-        parameters_np = np.array(parameters)
-        parameters_np = np.average(parameters_np, axis=0)
-        print(parameters_np[0],math.degrees(parameters_np[1]))    
+        
     
 if __name__=="__main__":
 
