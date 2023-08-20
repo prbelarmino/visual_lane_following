@@ -127,12 +127,12 @@ class ClassicalLaneDetector():
 
                     if  abs(slope) > 0.2:
                         
-                        if slope < 0 and xh < 212:
+                        if slope < 0 and x1 < 212:
 
                             #left.append((xh,yh,xm,ym))
                             left_lines_tr.append(self.lane_transformation([x1,y1,x2,y2]))
 
-                        elif slope > 0 and xh >= 212:
+                        elif slope > 0 and x2 >= 212:
 
                             right_lines_tr.append(self.lane_transformation([x1,y1,x2,y2]))
 
@@ -169,9 +169,12 @@ class ClassicalLaneDetector():
                     
             if self.left_lane.shape[0]:
 
-                #left_slope = (self.left_line_avg[3] - self.left_line_avg[1]) / (self.left_line_avg[2] - self.left_line_avg[0])
+                self.left_lines_list
                 left_slope = math.degrees(self.left_lane[4])
                 left_line_avg = self.left_lane.astype(int) 
+                #lines = np.array(self.left_lines_list)
+                #left_line_avg = np.average(lines, axis=0)
+                #left_line_avg = left_line_avg.astype(int) 
                 org = (50, 50)
                 org2 = (30,85)
                 self.output = cv2.putText(self.output, "{:2.2f}".format(left_slope), org, self.font, self.fontScale, self.color, self.thickness, cv2.LINE_AA)

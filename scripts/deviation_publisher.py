@@ -30,15 +30,15 @@ class DeviationPublisher:
     
 
     def __realsense_image_callback(self, msg):
-
+        #print("image")
         cv_image = self.img_bridge.imgmsg_to_cv2(msg, "bgr8")
         self.cl_detector.detection_pipeline(cv_image)
         self.lane_msg.left_lane = self.cl_detector.left_lane
         self.lane_msg.right_lane = self.cl_detector.right_lane
         
         self.deviation_pub.publish(self.lane_msg)
-        self.cl_detector.plot_flag = False
-        if self.cl_detector.plot_flag and cv_image.shape == self.cl_detector.output.shape:
+        if self.cl_detector.plot_flag:
+        #if self.cl_detector.plot_flag and cv_image.shape == self.cl_detector.output.shape:
 
             stack_image = np.hstack((cv_image, self.cl_detector.output))
             filtered3 =  np.stack((self.cl_detector.filtered_hsv,) * 3, axis=-1)
