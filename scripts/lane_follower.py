@@ -13,7 +13,7 @@ class LaneFollower:
         self.left_lane = []
         self.right_lane = []
         self.initial_time_flag = True
-        self.target_speed = 0.55 #range: 0.0(0.5) to 0.7
+        self.target_speed = 0.6 #range: 0.0(0.5) to 0.7
         self.target_steering_angle = 1.0 #range: -1.0 to 1.0
         self.current_speed = 0.0
         self.int_error_speed = 0.0
@@ -21,12 +21,10 @@ class LaneFollower:
         self.ki_speed = 0.075
         self.ki_speed = 0.3
         self.int_error_steer = 0.0
-        self.kp_steer = -1.0 #0.3/120
-        self.ki_steer = -2
-        self.kd_steer = 1.25/(self.target_speed*math.cos(math.radians(50))) #0.91 = cos 25
+        self.kp_steer = -1.25 #0.3/120
+        self.kd_steer = 2.35
         self.yaw = 0.0
         self.delta_x = 0.0
-        
         self.drive_cmd_pub = rospy.Publisher("/ika_racer/locomotion/drive_command", DriveCommandStamped, queue_size=10)
         self.drive_cmd = DriveCommandStamped()
         self.drive_cmd.drive.driver_code = 1
@@ -48,7 +46,7 @@ class LaneFollower:
 
         self.left_lane = msg.left_lane
         self.right_lane = msg.right_lane
-        if len(self.left_lane) + len(self.left_lane) > 0:
+        if len(self.left_lane) + len(self.right_lane) > 0:
             self.lane_timeout = rospy.get_time()
         self.get_deviation_and_slope()
        
@@ -66,9 +64,10 @@ class LaneFollower:
         self.int_error_steer += self.delta_x*(current_time - self.previous_time)
         self.previous_time = current_time
         speed_cmd = self.ki_speed*self.int_error_speed + self.kp_speed*speed_error 
-        steer_cmd = self.kp_steer*self.delta_x + self.kd_steer* self.current_speed *math.cos(self.yaw) + self.ki_steer * self.int_error_steer
-        print(self.delta_x,math.degrees(self.yaw), self.current_speed ,steer_cmd)
-        steer_cmd = np.clip(steer_cmd,-1,1)
+        steer_cmd = self.kp_steer*self.delta_x + self.kd_steer* self.current_speed *math.cos(self.yaw)
+        print(self.current_speed , self.delta_x,math.degrees(self.yaw), self.int_error_steer, steer_cmd)
+        speed_cmd = np.clip(speed_cmd, 0, 0.65)
+        steer_cmd = np.clip(steer_cmd, -1, 1)
         self.drive_cmd.drive.speed = speed_cmd
         self.drive_cmd.drive.steering_angle = steer_cmd
         if rospy.get_time() - self.lane_timeout > 0.5:
@@ -99,7 +98,10 @@ class LaneFollower:
     def stop_vehicle(self):
         
         self.drive_cmd.drive.speed = 0.0
+        self.drive_cmd.drive.steering_angle = 0.0
         self.drive_cmd_pub.publish(self.drive_cmd)
+        print("NODE HAS BEEN SHUTDOWN")
+        print(self.kd_steer)
 
 if __name__=="__main__":
 

@@ -7,7 +7,6 @@ class ClassicalLaneDetector():
 
     def __init__(self):
 
-        ### Set thresholds and other variables
         self.plot_flag = False
         self.image = np.array([])
         self.hsv_image = np.array([])
@@ -15,6 +14,20 @@ class ClassicalLaneDetector():
         self.edges = np.array([])
         self.masked_edges = np.array([])
         self.output = np.array([])
+        self.left_lines_list = []
+        self.right_lines_list = []
+        self.right_lines_arr = []
+        self.left_lines_arr = []
+        self.ignore_mask_color = 255
+        self.rs_image_height = 240
+        self.rs_image_width = 424
+        self.rs_y_line_limit = 130
+        self.window_size = 1
+        self.color = (255, 255, 0)
+        self.font = cv2.FONT_HERSHEY_SIMPLEX
+        self.fontScale = 1
+        self.thickness = 2
+        self.d = 200 #Why ??????????????????
 
         #### For HSV thresholding --> get_thresholded_hsv
         self.lower_threshold = np.array([0, 75, 70], dtype="uint8")
@@ -26,7 +39,7 @@ class ClassicalLaneDetector():
         self.threshhigh = 250
 
         #### For region masking --> mask_region
-        self.mask_points = [(0, 240), (0, 130), (424, 130), (424, 240)]
+        self.mask_points = [(0, self.rs_image_height), (0, self.rs_y_line_limit), (self.rs_image_width, self.rs_y_line_limit), (self.rs_image_width, self.rs_image_height)]
         self.rs_mask_vertices = np.array([self.mask_points], dtype=np.int32)
 
         #### For HoughLines --> get_HoughP
@@ -35,25 +48,6 @@ class ClassicalLaneDetector():
         self.max_linegap = 15  # maximum gap in pixels between connectable line segments
         self.rho = 0.75
         self.theta = np.pi / 180
-
-        #### For get_lane_slopes
-
-        self.left_lines_list = []
-        self.right_lines_list = []
-        self.left_line_avg = []
-        self.right_line_avg = []
-        self.ignore_mask_color = 255
-        self.rs_image_height = 240
-        self.rs_image_width = 424
-        self.rs_y_line_limit = 150
-        self.window_size = 1
-        self.color = (255, 255, 0)
-        self.font = cv2.FONT_HERSHEY_SIMPLEX
-        self.fontScale = 1
-        self.thickness = 2
-        self.d = 200
-        self.left_lines_tr = []
-        self.right_lines_tr = []
 
     def lane_transformation(self, lane):
 
@@ -77,7 +71,7 @@ class ClassicalLaneDetector():
         parameters = np.polyfit(x_points, y_points, 1)
         slope = parameters[0]
         y_int = parameters[1]
-        ym = 130
+        ym = self.rs_y_line_limit
         xm = int((ym - y_int) / slope)
         yh = self.rs_image_height
         xh = int((yh - y_int) / slope)
@@ -86,18 +80,15 @@ class ClassicalLaneDetector():
 
             angle += math.radians(180)
         return np.array([xh,yh,xm,ym,angle])
+    
     def merge_lines(self,lines_array):
 
         merged_line = np.array([])
         points_len = lines_array.shape[0]
         if points_len:
-            # points_x = np.concatenate((lines_array[:, 0], lines_array[:, 2]))
-            # points_y = np.concatenate((lines_array[:, 1], lines_array[:, 3]))
-            # group = np.split(lines_array, np.where(np.diff(lines_array[:, 4]) > 0.1)[0] + 1)
-            # lines_array[:, 4].sort()
-            # merged_line = np.array(self.extrap_line(points_x,points_y))
             merged_line = np.average(lines_array, axis=0)
         return merged_line
+    
     def get_mov_avg(self, line_list, lines_array):
 
         points_len = lines_array.shape[0]
@@ -126,9 +117,7 @@ class ClassicalLaneDetector():
     def get_lanes(self, lines):
 
         left_lines_tr_arr = []
-        self.left_lines_arr = []
         right_lines_tr_arr = []
-        self.right_lines_arr = []
 
         if not lines is None:
             for line in lines:
@@ -223,7 +212,6 @@ class ClassicalLaneDetector():
                 right_slope = math.degrees(self.right_lane[4])
                 right_lane_avg = self.right_lane.astype(int)
                 right_line_avg = self.right_line.astype(int)
-                #print(self.right_line)
                 org = (300, 50)
                 org2 = (300, 85)
                 self.output = cv2.putText(self.output, "{:1.2f}".format(right_slope), org, self.font, self.fontScale,
