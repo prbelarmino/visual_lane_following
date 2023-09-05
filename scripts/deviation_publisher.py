@@ -5,9 +5,6 @@ from sensor_msgs.msg import Image
 from visual_lane_following.msg import LaneMsg
 from lane_detection_classical_v4 import ClassicalLaneDetector
 from cv_bridge import CvBridge
-import cv2
-import numpy as np
-
 
 class DeviationPublisher:
 
@@ -16,13 +13,8 @@ class DeviationPublisher:
         self.lane_msg = LaneMsg()
         self.deviation_pub = rospy.Publisher("/ika_racer/lane_visual_following/lane_deviation", LaneMsg, queue_size=1)
         self.__realsense_image_sub  = rospy.Subscriber("/ika_racer/perception/realsense/camera/color/image_raw", Image, self.__realsense_image_callback)
-        self.steering_angle_factor = 1.0
-        self.intial_time = rospy.get_time()
         self.img_bridge = CvBridge()
         self.cl_detector = ClassicalLaneDetector()
-        self.list_cmd = []
-        self.width = 424
-        self.height = 240
     
     def __realsense_image_callback(self, msg):
 
@@ -30,16 +22,9 @@ class DeviationPublisher:
         self.cl_detector.detection_pipeline(cv_image)
         self.lane_msg.left_lane = self.cl_detector.left_lane
         self.lane_msg.right_lane = self.cl_detector.right_lane
+        self.lane_msg.yaw = self.cl_detector.yaw
+        self.lane_msg.lateral_deviation = self.cl_detector.lateral_deviation
         self.deviation_pub.publish(self.lane_msg)
-
-        if self.cl_detector.plot_flag:
-
-            stack_image = np.hstack((cv_image, self.cl_detector.output))
-            filtered3 =  np.stack((self.cl_detector.filtered_hsv,) * 3, axis=-1)
-            stack_image2 = np.hstack((self.cl_detector.hsv_image,filtered3))
-            final_stack =  np.vstack((stack_image, stack_image2))
-            cv2.imshow("image", final_stack)
-            cv2.waitKey(3)
                  
 if __name__=="__main__":
 

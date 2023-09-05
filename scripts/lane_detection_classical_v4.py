@@ -14,24 +14,25 @@ class ClassicalLaneDetector():
         self.edges = np.array([])
         self.masked_edges = np.array([])
         self.output = np.array([])
-        self.left_lines_list = []
-        self.right_lines_list = []
         self.right_lines_arr = []
         self.left_lines_arr = []
         self.ignore_mask_color = 255
         self.rs_image_height = 240
         self.rs_image_width = 424
         self.rs_y_line_limit = 130
-        self.window_size = 1
         self.color = (255, 255, 0)
         self.font = cv2.FONT_HERSHEY_SIMPLEX
         self.fontScale = 1
         self.thickness = 2
-        self.d = 200 #Why ??????????????????
+        self.focal_length_px = 200 #in pixels
+        self.pixel_to_meter = 0.3/400
+        self.xr_offset = 400
+        self.lateral_deviation = 0.0
+        self.yaw = 0.0
 
         #### For HSV thresholding --> get_thresholded_hsv
         self.lower_threshold = np.array([0, 75, 70], dtype="uint8")
-        self.upper_threshold = np.array([200, 175, 200], dtype="uint8")
+        self.upper_threshold = np.array([200, 175, 240], dtype="uint8")
 
         #### For canny edge detection --> get_canny_edges
         self.kernel_size = 15  ## Filter size for gaussian blur
@@ -49,7 +50,7 @@ class ClassicalLaneDetector():
         self.rho = 0.75
         self.theta = np.pi / 180
 
-    def lane_transformation(self, lane):
+    def pesperctive_transformation(self, lane):
 
         if not lane is None and len(lane):
 
@@ -57,7 +58,7 @@ class ClassicalLaneDetector():
             yp = np.array([lane[1], lane[3]])
             xp = 0.5 * self.rs_image_width + 0.5 * self.rs_image_height * (xp - self.rs_image_width / 2) / (
                         yp - self.rs_image_height / 2)
-            yp = self.rs_image_height - self.d * (self.rs_image_height - yp) / (yp - self.rs_image_height / 2)
+            yp = self.rs_image_height - self.focal_length_px * (self.rs_image_height - yp) / (yp - self.rs_image_height / 2)
             lane_tr = [xp[0], yp[0], xp[1], yp[1]]
 
         else:
@@ -79,79 +80,70 @@ class ClassicalLaneDetector():
         if slope < 0:
 
             angle += math.radians(180)
+
         return np.array([xh,yh,xm,ym,angle])
-    
-    def merge_lines(self,lines_array):
+     
+    def merge_lines(self, lines_array):
 
-        merged_line = np.array([])
-        points_len = lines_array.shape[0]
-        if points_len:
+        if lines_array.shape[0] > 0:
+
             merged_line = np.average(lines_array, axis=0)
-        return merged_line
-    
-    def get_mov_avg(self, line_list, lines_array):
-
-        points_len = lines_array.shape[0]
-        if points_len:
-            merged_line = self.merge_lines(lines_array)
-            line_list.append(merged_line)
-
-        line_len = len(line_list)
-        if line_len > self.window_size or points_len == 0 and line_len > 0:
-            line_list.pop(0)
-        if len(line_list):
-
-            line = np.average(np.array(line_list), axis=0)
-            extrap_line = np.array(self.extrap_line((line[0],line[2]),(line[1],line[3])))
+            extrap_line = self.extrap_line((merged_line[0],merged_line[2]),(merged_line[1],merged_line[3]))
 
         else:
+
             extrap_line = np.array([])
 
         return extrap_line
-
-    def set_points_order(self,line):
-
-        if line[4] < 0:
-
-            return(line[0])
+        
     def get_lanes(self, lines):
 
         left_lines_tr_arr = []
         right_lines_tr_arr = []
+        self.right_lines_arr = []
+        self.left_lines_arr = []
 
         if not lines is None:
             for line in lines:
 
                 line = line[0].astype(float)
                 slope = (line[2]-line[0])/ (line[3]-line[1])
-                tr_line = self.lane_transformation([line[0], line[1], line[2], line[3]])
+                tr_line = self.pesperctive_transformation([line[0], line[1], line[2], line[3]])
                 extrap_line = self.extrap_line((tr_line[0],tr_line[2]),(tr_line[1],tr_line[3]))
 
-                #if tr_line[0] != tr_line[2]
                 if abs(extrap_line[4]) > 0.7854:
                  
-                    if slope <= 0 and line[0] < 180 and extrap_line[0] < 212 and extrap_line[0] * math.sin(extrap_line[4]) > -300:
+                    if slope <= 0 and line[0] < 240 and extrap_line[0] < 212 and extrap_line[0] * math.sin(extrap_line[4]) > -300:
 
-                        left_lines_tr_arr.append([tr_line[0], tr_line[1], tr_line[2], tr_line[3], extrap_line[4]])
-                        self.left_lines_arr.append([line[0], line[1], line[2], line[3], slope])
+                        left_lines_tr_arr.append([tr_line[0], tr_line[1], tr_line[2], tr_line[3]])
+                        self.left_lines_arr.append([line[0], line[1], line[2], line[3]])
 
-                    elif  slope >0 and line[2] > 240 and extrap_line[0] >= 212 and  extrap_line[0]* math.sin(extrap_line[4]) < 550:
+                    elif  slope >0 and line[2] > 180 and extrap_line[0] >= 212 and  extrap_line[0]* math.sin(extrap_line[4]) < 550:
 
-                        self.right_lines_arr.append([line[0], line[1], line[2], line[3], slope])
-                        right_lines_tr_arr.append([tr_line[0], tr_line[1], tr_line[2], tr_line[3], extrap_line[4]])
+                        self.right_lines_arr.append([line[0], line[1], line[2], line[3]])
+                        right_lines_tr_arr.append([tr_line[0], tr_line[1], tr_line[2], tr_line[3]])
 
-        self.left_lane = self.get_mov_avg(self.left_lines_list, np.array(left_lines_tr_arr))
-        self.right_lane = self.get_mov_avg(self.right_lines_list, np.array(right_lines_tr_arr))
+        self.left_lane = self.merge_lines(np.array(left_lines_tr_arr))
+        self.right_lane = self.merge_lines(np.array(right_lines_tr_arr))
 
-        if self.plot_flag:
-            self.left_line = self.merge_lines(np.array(self.left_lines_arr))
-            if self.left_line.shape[0]:
-                self.left_line = self.extrap_line((self.left_line[0], self.left_line[2]),
-                                                  (self.left_line[1], self.left_line[3]))
-            self.right_line = self.merge_lines(np.array(self.right_lines_arr))
-            if self.right_line.shape[0]:
-                self.right_line = self.extrap_line((self.right_line[0], self.right_line[2]),
-                                                  (self.right_line[1], self.right_line[3]))
+                
+    def get_deviation_and_slope(self):
+
+        parameters = []
+        if len(self.left_lane) > 0:
+
+            parameters.append([self.left_lane[0],self.left_lane[4]])
+
+        if len(self.right_lane) > 0:
+
+            parameters.append([self.right_lane[0]-self.xr_offset,self.right_lane[4]])
+
+        if len(parameters) > 0:
+
+            parameters_np = np.array(parameters)
+            parameters_np = np.average(parameters_np, axis=0)
+            self.yaw = parameters_np[1]
+            self.lateral_deviation = self.pixel_to_meter*parameters_np[0]*math.sin(self.yaw)
 
     def detection_pipeline(self, image):
 
@@ -168,6 +160,7 @@ class ClassicalLaneDetector():
         lines = cv2.HoughLinesP(self.masked_edges, self.rho, self.theta, self.vote_threshold, np.array([]),
                                 self.min_linelength, self.max_linegap)
         self.get_lanes(lines)
+        self.get_deviation_and_slope()
 
         if self.plot_flag:
 
@@ -176,6 +169,8 @@ class ClassicalLaneDetector():
             cv2.line(self.output, (180, 0), (180, 240), (255, 255, 255), 2)
             cv2.line(self.output, (240, 0), (240, 240), (255, 255, 255), 2)
             cv2.line(self.output, self.mask_points[1], self.mask_points[2], (255, 255, 255), 2)
+            self.left_line = self.merge_lines(np.array(self.left_lines_arr))
+            self.right_line = self.merge_lines(np.array(self.right_lines_arr))
 
             if not lines is None:
 
@@ -222,6 +217,13 @@ class ClassicalLaneDetector():
                          (0, 255, 0), 8)
                 cv2.line(self.output, (right_line_avg[0], right_line_avg[1]), (right_line_avg[2], right_line_avg[3]),
                          (0, 155, 0), 8)
+            
+            stack_image = np.hstack((self.image, self.output))
+            filtered3 =  np.stack((self.filtered_hsv,) * 3, axis=-1)
+            stack_image2 = np.hstack((self.hsv_image,filtered3))
+            final_stack =  np.vstack((stack_image, stack_image2))
+            cv2.imshow("image", final_stack)
+            cv2.waitKey(3)
 
 
 
