@@ -13,11 +13,10 @@ class LaneFollower:
         self.left_lane = []
         self.right_lane = []
         self.initial_time_flag = True
-        self.target_speed = 0.65 #range: 0.0(0.5) to 1.0
+        self.target_speed = 0.60 #range: 0.0(0.5) to 1.0
         self.current_speed = 0.0
         self.int_error_speed = 0.0
         self.kp_speed = 0.25
-        self.ki_speed = 0.075
         self.ki_speed = 0.3
         self.kp_steer = -1.25 #0.3/120
         self.kd_steer = 2.35
@@ -78,7 +77,6 @@ class LaneFollower:
         self.drive_cmd.drive.steering_angle = 0.0
         self.drive_cmd_pub.publish(self.drive_cmd)
         print("NODE HAS BEEN SHUTDOWN")
-        print(self.kd_steer)
 
 if __name__=="__main__":
 

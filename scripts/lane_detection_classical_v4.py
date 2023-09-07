@@ -7,14 +7,14 @@ class ClassicalLaneDetector():
 
     def __init__(self):
 
-        self.plot_flag = False
+        self.plot_flag = False #Activate real time plot mode
         self.image = np.array([])
         self.hsv_image = np.array([])
         self.filtered_hsv = np.array([])
         self.edges = np.array([])
         self.masked_edges = np.array([])
         self.output = np.array([])
-        self.right_lines_arr = []
+        self.right_lines_arr = [] #Only necessary in the plot mode
         self.left_lines_arr = []
         self.ignore_mask_color = 255
         self.rs_image_height = 240
@@ -127,7 +127,7 @@ class ClassicalLaneDetector():
         self.right_lane = self.merge_lines(np.array(right_lines_tr_arr))
 
                 
-    def get_deviation_and_slope(self):
+    def get_deviation_and_yaw(self):
 
         parameters = []
         if len(self.left_lane) > 0:
@@ -160,7 +160,7 @@ class ClassicalLaneDetector():
         lines = cv2.HoughLinesP(self.masked_edges, self.rho, self.theta, self.vote_threshold, np.array([]),
                                 self.min_linelength, self.max_linegap)
         self.get_lanes(lines)
-        self.get_deviation_and_slope()
+        self.get_deviation_and_yaw()
 
         if self.plot_flag:
 
